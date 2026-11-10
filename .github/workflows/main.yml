@@ -1,0 +1,57 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Project taiyaar karo (zip ho to khol do)
+        run: |
+          set -e
+          # 1) repo mein pehle se Gradle project ho to wahi use karo
+          BASE=$(find . -maxdepth 4 -name settings.gradle -not -path './_proj/*' -not -path './.git/*' | head -1)
+          # 2) nahi mila to project wali zip kholo
+          if [ -z "$BASE" ]; then
+            for z in $(find . -maxdepth 1 -iname '*project*.zip' | sort); do
+              echo "Zip khol raha hoon: $z"
+              unzip -q -o "$z" -d _proj
+            done
+            BASE=$(find _proj -maxdepth 4 -name settings.gradle 2>/dev/null | head -1)
+          fi
+          if [ -z "$BASE" ]; then
+            echo "ERROR: Repo mein Android project (settings.gradle) nahi mila."
+            echo "Project wali zip (jaise MilkmanPro_Android_Project_3.zip) repo ke sabse upar upload karo."
+            echo "Repo mein ye files hain:"; ls -la
+            exit 1
+          fi
+          DIR=$(dirname "$BASE")
+          echo "Project folder: $DIR"
+          # 3) update wali zip ho to uski index.html project mein daalo
+          for z in $(find . -maxdepth 1 -iname '*update*.zip' | sort); do
+            echo "Update zip laga raha hoon: $z"
+            rm -rf _upd && mkdir _upd
+            unzip -q -o "$z" -d _upd
+            F=$(find _upd -path '*app/src/main/assets/index.html' | head -1)
+            if [ -n "$F" ]; then mkdir -p "$DIR/app/src/main/assets" && cp "$F" "$DIR/app/src/main/assets/index.html" && echo "index.html badal di"; fi
+          done
+          echo "DIR=$DIR" >> "${GITHUB_ENV:-/dev/null}"
+      - name: Build debug APK
+        run: |
+          cd "$DIR"
+          gradle assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MilkmanPRO-apk
+          path: '**/app-debug.apk'
