@@ -22,9 +22,10 @@ jobs:
           set -e
           # 1) repo mein pehle se Gradle project ho to wahi use karo
           BASE=$(find . -maxdepth 4 -name settings.gradle -not -path './_proj/*' -not -path './.git/*' | head -1)
-          # 2) nahi mila to project wali zip kholo
+          # 2) nahi mila to project wali zip kholo (naam mein space ho tab bhi chalega)
           if [ -z "$BASE" ]; then
-            for z in $(find . -maxdepth 1 -iname '*project*.zip' | sort); do
+            mapfile -d '' -t PZ < <(find . -maxdepth 1 -type f -iname '*project*.zip' -print0 | sort -z)
+            for z in "${PZ[@]}"; do
               echo "Zip khol raha hoon: $z"
               unzip -q -o "$z" -d _proj
             done
@@ -39,7 +40,8 @@ jobs:
           DIR=$(dirname "$BASE")
           echo "Project folder: $DIR"
           # 3) update wali zip ho to uski index.html project mein daalo
-          for z in $(find . -maxdepth 1 -iname '*update*.zip' | sort); do
+          mapfile -d '' -t UZ < <(find . -maxdepth 1 -type f -iname '*update*.zip' -print0 | sort -z)
+          for z in "${UZ[@]}"; do
             echo "Update zip laga raha hoon: $z"
             rm -rf _upd && mkdir _upd
             unzip -q -o "$z" -d _upd
